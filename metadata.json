@@ -1,0 +1,5 @@
+{
+  "name": "Expert Lounge AI",
+  "description": "A high-performance resume analysis tool using a multi-tiered Gemini architecture with fallback strategies and cross-validation.",
+  "requestFramePermissions": []
+}

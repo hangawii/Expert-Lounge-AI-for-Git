@@ -1,0 +1,90 @@
+/* Custom Styles - Standard CSS (Tailwind Base handled by CDN) */
+
+/* Global Font Settings */
+body { 
+  font-family: 'Inter', sans-serif; 
+}
+
+h1, h2, h3 { 
+  font-family: 'Playfair Display', serif; 
+}
+
+/* Custom scrollbar for webkit */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #0f172a; 
+}
+::-webkit-scrollbar-thumb {
+  background: #b48a5f; 
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #d4af37; 
+}
+
+.text-gradient-gold {
+  background: linear-gradient(to right, #f3e5ab, #d4af37);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* PRINT STYLES - A4 Optimization */
+@page {
+  size: A4;
+  margin: 20mm;
+}
+@media print {
+  body {
+    background-color: white !important;
+    color: black !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+  #root {
+    height: auto !important;
+  }
+  /* Hide UI elements during print */
+  .no-print, header, aside, button, nav, .input-panel {
+    display: none !important;
+  }
+  /* Ensure Report View takes full width */
+  .report-view {
+    display: block !important;
+    width: 100% !important;
+    height: auto !important;
+    overflow: visible !important;
+    background: white !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
+  }
+  /* Show Confidential Footer */
+  .print-footer {
+    display: block !important;
+    position: fixed;
+    bottom: 0;
+    width: 100%;
+    text-align: center;
+    font-size: 10pt;
+    color: #666;
+    border-top: 1px solid #ccc;
+    padding-top: 10px;
+  }
+  /* Text Contrast */
+  h1, h2, h3, h4, p, li, span {
+    color: black !important;
+    text-shadow: none !important;
+  }
+  .text-slate-300, .text-slate-400, .text-slate-500 {
+    color: #333 !important;
+  }
+  /* Links */
+  a {
+    text-decoration: none !important;
+    color: black !important;
+  }
+}

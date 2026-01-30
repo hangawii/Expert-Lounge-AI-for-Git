@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Expert Lounge AI - Premium Executive Suite</title>
+    
+    <!-- SEO Meta Tags -->
+    <meta name="description" content="Expert Lounge AI transforms executive resumes into leadership profiles using Gemini 3. Specialized for senior talent, offering blind mode privacy and deep strategic context analysis." />
+    <meta name="keywords" content="Executive Resume, AI Resume Analysis, Leadership Profiling, Headhunter Tools, Expert Lounge, Senior Career, Resume Parsing" />
+    <meta name="author" content="Expert Lounge" />
+    
+    <!-- Open Graph / Facebook / Kakao -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://expertlounge.net/" />
+    <meta property="og:title" content="Expert Lounge AI - Executive Intelligence Suite" />
+    <meta property="og:description" content="Maximize your career potential with AI-driven leadership analysis. Designed for executives and headhunters." />
+    <meta property="og:image" content="https://images.unsplash.com/photo-1600607686527-6fb886090705?q=80&w=1200&auto=format&fit=crop" />
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              slate: {
+                850: '#1e293b',
+                900: '#0f172a',
+                950: '#020617',
+              },
+              brand: {
+                blue: '#3b82f6', // Keep for tech accents
+                gold: '#d4af37', // Luxury Gold
+                bronze: '#b48a5f', // Warm Wood/Bronze tone
+                dark: '#0f172a',
+                surface: '#1e293b',
+              }
+            },
+            fontFamily: {
+              sans: ['Inter', 'sans-serif'],
+              serif: ['Playfair Display', 'serif'], // Optional for headings if imported
+            },
+            backgroundImage: {
+              'luxury-gradient': 'linear-gradient(to right, #b48a5f, #d4af37, #f3e5ab, #b48a5f)',
+            },
+            animation: {
+              'fade-in': 'fadeIn 0.5s ease-out forwards',
+            },
+            keyframes: {
+              fadeIn: {
+                '0%': { opacity: '0', transform: 'translateY(10px)' },
+                '100%': { opacity: '1', transform: 'translateY(0)' },
+              }
+            },
+            screens: {
+              'print': {'raw': 'print'},
+            }
+          }
+        }
+      }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@400;600;700&display=swap" rel="stylesheet">
+<script type="importmap">
+{
+  "imports": {
+    "react": "https://esm.sh/react@^19.2.4",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
+    "react/": "https://esm.sh/react@^19.2.4/",
+    "@google/genai": "https://esm.sh/@google/genai@^1.38.0",
+    "mammoth": "https://esm.sh/mammoth@^1.11.0"
+  }
+}
+</script>
+</head>
+  <body class="bg-slate-950 text-white h-screen overflow-hidden">
+    <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
+  </body>
+</html>
