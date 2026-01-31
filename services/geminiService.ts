@@ -2,11 +2,13 @@ import { GoogleGenAI, Type, Schema } from "@google/genai";
 import { AnalysisMode, ResumeData, ProcessingStats, AnalysisResult, ParsedResumeData, OutputLanguage } from "../types";
 
 // --- Configuration ---
-const API_KEY = process.env.API_KEY || ''; 
+const API_KEY = (import.meta.env.VITE_GEMINI_API_KEY || '').trim();
 
-// Model Definitions
+// --- HYBRID INTELLIGENCE GRID (Architecture 3.0) ---
+// Primary Engine (Flash 3.0 Role): Uses 'gemini-3-flash-preview' (Bleeding Edge)
+// Fallback Engine (Pro 3.0 Role): Uses 'gemini-3-pro-preview' (Bleeding Edge)
 const MODEL_PRO = 'gemini-3-pro-preview';
-const MODEL_FAST = 'gemini-3-flash-preview'; 
+const MODEL_FAST = 'gemini-3-flash-preview';
 
 // --- DYNAMIC SYSTEM INSTRUCTIONS ---
 const getBriefingInstruction = (lang: OutputLanguage) => `
@@ -76,14 +78,14 @@ const getResumeSchema = (lang: OutputLanguage): Schema => ({
     candidateName: { type: Type.STRING },
     email: { type: Type.STRING },
     phone: { type: Type.STRING },
-    
+
     // Briefing Fields
     professionalSummary: { type: Type.STRING, description: `Executive summary in ${lang}.` },
     maskedSummary: { type: Type.STRING, description: `Anonymized summary for blind mode in ${lang}. Remove specific company/school names.` },
-    
+
     leadershipStyle: { type: Type.STRING, description: `High-level leadership archetype description in ${lang}.` },
     topSkills: { type: Type.ARRAY, items: { type: Type.STRING }, description: "5-7 Unique Selling Point hashtags." },
-    
+
     // Refinement Fields
     refinedSummary: { type: Type.STRING, description: `Polished, value-prop driven summary in ${lang}.` },
     // Removed strategicOverview and critique from Final Report Schema as requested
@@ -97,8 +99,8 @@ const getResumeSchema = (lang: OutputLanguage): Schema => ({
           maskedCompany: { type: Type.STRING, description: `Anonymized company name (Industry + Scale) in ${lang}.` },
           role: { type: Type.STRING },
           duration: { type: Type.STRING },
-          keyAchievements: { 
-            type: Type.ARRAY, 
+          keyAchievements: {
+            type: Type.ARRAY,
             items: { type: Type.STRING },
             description: "Original bullet points."
           },
@@ -158,14 +160,14 @@ const getResumeSchema = (lang: OutputLanguage): Schema => ({
 const parsingSchema: Schema = {
   type: Type.OBJECT,
   properties: {
-    detectedLanguage: { 
-        type: Type.STRING, 
-        enum: ["Korean", "English"], 
-        description: "Identify the primary language of the resume." 
+    detectedLanguage: {
+      type: Type.STRING,
+      enum: ["Korean", "English"],
+      description: "Identify the primary language of the resume."
     },
-    strategicOverview: { 
-        type: Type.STRING, 
-        description: "A high-level audit of the resume. What is lacking? What needs improvement? (Only if mode is Refinement)" 
+    strategicOverview: {
+      type: Type.STRING,
+      description: "A high-level audit of the resume. What is lacking? What needs improvement? (Only if mode is Refinement)"
     },
     basicInfo: {
       type: Type.OBJECT,
@@ -180,9 +182,9 @@ const parsingSchema: Schema = {
       }
     },
     competencies: {
-        type: Type.ARRAY,
-        items: { type: Type.STRING },
-        description: "List of core competencies or skills."
+      type: Type.ARRAY,
+      items: { type: Type.STRING },
+      description: "List of core competencies or skills."
     },
     experience: {
       type: Type.ARRAY,
@@ -192,13 +194,13 @@ const parsingSchema: Schema = {
           company: { type: Type.STRING },
           role: { type: Type.STRING },
           duration: { type: Type.STRING },
-          description: { 
-            type: Type.STRING, 
-            description: "Full description text. If Refinement Mode, this MUST be the REWRITTEN/IMPROVED version." 
+          description: {
+            type: Type.STRING,
+            description: "Full description text. If Refinement Mode, this MUST be the REWRITTEN/IMPROVED version."
           },
-          critique: { 
-            type: Type.STRING, 
-            description: "Specific feedback/critique for this role. Why was it changed? (Only if mode is Refinement)" 
+          critique: {
+            type: Type.STRING,
+            description: "Specific feedback/critique for this role. Why was it changed? (Only if mode is Refinement)"
           }
         }
       }
@@ -215,16 +217,16 @@ const parsingSchema: Schema = {
       }
     },
     certifications: {
-        type: Type.ARRAY,
-        items: {
-            type: Type.OBJECT,
-            properties: {
-                name: { type: Type.STRING },
-                issuer: { type: Type.STRING },
-                year: { type: Type.STRING }
-            }
-        },
-        description: "Certifications, Thesis, Books, Patents, Awards."
+      type: Type.ARRAY,
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          name: { type: Type.STRING },
+          issuer: { type: Type.STRING },
+          year: { type: Type.STRING }
+        }
+      },
+      description: "Certifications, Thesis, Books, Patents, Awards."
     },
     jobMatch: {
       type: Type.OBJECT,
@@ -245,44 +247,53 @@ const measureLatency = async <T,>(fn: () => Promise<T>): Promise<[T, number]> =>
   return [result, Math.round(end - start)];
 };
 
-const ai = new GoogleGenAI({ apiKey: API_KEY });
+// Lazy initialization of GoogleGenAI to prevent crash on load if API Key is missing
+let aiInstance: GoogleGenAI | null = null;
+const getAI = () => {
+  if (!aiInstance) {
+    aiInstance = new GoogleGenAI({ apiKey: API_KEY || 'dummy_key' });
+    // We use a dummy key to prevent constructor error if empty, 
+    // but actual calls will fail if key is invalid, which we handle in the functions.
+  }
+  return aiInstance;
+};
 
 // --- UTILS: Clean JSON ---
 const cleanAndParseJson = (text: string): any => {
-    // Robust cleanup: find the first '{' and last '}'
-    const startIndex = text.indexOf('{');
-    const endIndex = text.lastIndexOf('}');
-    
-    if (startIndex === -1 || endIndex === -1) {
-        throw new Error("No JSON object found in response");
-    }
+  // Robust cleanup: find the first '{' and last '}'
+  const startIndex = text.indexOf('{');
+  const endIndex = text.lastIndexOf('}');
 
-    const jsonString = text.substring(startIndex, endIndex + 1);
-    
+  if (startIndex === -1 || endIndex === -1) {
+    throw new Error("No JSON object found in response");
+  }
+
+  const jsonString = text.substring(startIndex, endIndex + 1);
+
+  try {
+    return JSON.parse(jsonString);
+  } catch (e) {
+    // Attempt to heal common LLM JSON syntax errors (missing commas)
+    console.warn("Initial JSON parse failed, attempting auto-repair...", e);
     try {
-        return JSON.parse(jsonString);
-    } catch (e) {
-        // Attempt to heal common LLM JSON syntax errors (missing commas)
-        console.warn("Initial JSON parse failed, attempting auto-repair...", e);
-        try {
-            // Fix: Missing commas between array items (e.g. "Item 1" "Item 2" -> "Item 1", "Item 2")
-            // Fix: Trailing commas
-            const healed = jsonString
-                .replace(/("\s*)\n(\s*")/g, '$1,$2') // Add comma between strings on newlines
-                .replace(/,(\s*[}\]])/g, '$1');    // Remove trailing commas
-                
-            return JSON.parse(healed);
-        } catch (healError) {
-             throw new Error("JSON Parsing Failed: " + (e as Error).message);
-        }
+      // Fix: Missing commas between array items (e.g. "Item 1" "Item 2" -> "Item 1", "Item 2")
+      // Fix: Trailing commas
+      const healed = jsonString
+        .replace(/("\s*)\n(\s*")/g, '$1,$2') // Add comma between strings on newlines
+        .replace(/,(\s*[}\]])/g, '$1');    // Remove trailing commas
+
+      return JSON.parse(healed);
+    } catch (healError) {
+      throw new Error("JSON Parsing Failed: " + (e as Error).message);
     }
+  }
 }
 
 // --- FUNCTION 1: Raw Resume Parsing + Initial Refinement (For Data Builder) ---
 export const parseRawResumeData = async (
-    fileInput: string | { mimeType: string, data: string },
-    jdText?: string,
-    mode: AnalysisMode = AnalysisMode.EXECUTIVE_BRIEFING // Mode is now passed
+  fileInput: string | { mimeType: string, data: string },
+  jdText?: string,
+  mode: AnalysisMode = AnalysisMode.EXECUTIVE_BRIEFING // Mode is now passed
 ): Promise<{ data: ParsedResumeData | null, latency: number, error?: string }> => {
   if (!API_KEY) return { data: null, latency: 0, error: "API Key Missing" };
 
@@ -300,7 +311,7 @@ export const parseRawResumeData = async (
 
     // --- REFINEMENT LOGIC INJECTION ---
     if (mode === AnalysisMode.RESUME_REFINEMENT) {
-        prompt += `
+      prompt += `
         
         [MODE: STRATEGIC REFINEMENT]
         Do NOT just extract. **AUDIT AND REFINE** the content immediately.
@@ -310,13 +321,13 @@ export const parseRawResumeData = async (
         4. **basicInfo.summary:** Rewrite the summary to be an Executive Value Proposition.
         `;
     } else {
-        prompt += `
+      prompt += `
         For 'description' in experience, preserve the original formatting (bullet points) as a single string.
         `;
     }
 
     if (jdText && jdText.trim().length > 0) {
-        prompt += `
+      prompt += `
         [JOB DESCRIPTION CONTEXT]
         Compare against this JD for Job Match section:
         ${jdText.substring(0, 5000)}
@@ -326,16 +337,18 @@ export const parseRawResumeData = async (
 
     const contents = [];
     if (typeof fileInput === 'string') {
-        contents.push({ role: 'user', parts: [{ text: prompt + "\n\nRESUME TEXT:\n" + fileInput.substring(0, 30000) }] });
+      contents.push({ role: 'user', parts: [{ text: prompt + "\n\nRESUME TEXT:\n" + fileInput.substring(0, 30000) }] });
     } else {
-        contents.push({ role: 'user', parts: [
-            { text: prompt },
-            { inlineData: { mimeType: fileInput.mimeType, data: fileInput.data } }
-        ]});
+      contents.push({
+        role: 'user', parts: [
+          { text: prompt },
+          { inlineData: { mimeType: fileInput.mimeType, data: fileInput.data } }
+        ]
+      });
     }
 
     const [data, latency] = await measureLatency(async () => {
-      const response = await ai.models.generateContent({
+      const response = await getAI().models.generateContent({
         model: MODEL_FAST, // Use Flash for parsing/initial refinement
         contents: contents as any,
         config: {
@@ -351,16 +364,16 @@ export const parseRawResumeData = async (
 
     // Map to ParsedResumeData
     const formattedData: ParsedResumeData = {
-      detectedLanguage: data.detectedLanguage || 'Korean', 
+      detectedLanguage: data.detectedLanguage || 'Korean',
       strategicOverview: data.strategicOverview, // Capture Global Critique
       basicInfo: {
-          name: data.basicInfo?.name || '',
-          title: data.basicInfo?.title || '',
-          email: data.basicInfo?.email || '',
-          phone: data.basicInfo?.phone || '',
-          linkedin: data.basicInfo?.linkedin || '',
-          location: data.basicInfo?.location || '',
-          summary: data.basicInfo?.summary || ''
+        name: data.basicInfo?.name || '',
+        title: data.basicInfo?.title || '',
+        email: data.basicInfo?.email || '',
+        phone: data.basicInfo?.phone || '',
+        linkedin: data.basicInfo?.linkedin || '',
+        location: data.basicInfo?.location || '',
+        summary: data.basicInfo?.summary || ''
       },
       competencies: data.competencies || [],
       experience: (data.experience || []).map((exp: any, idx: number) => ({
@@ -378,28 +391,29 @@ export const parseRawResumeData = async (
         year: edu.year || ''
       })),
       certifications: (data.certifications || []).map((cert: any, idx: number) => ({
-          id: Date.now() + idx + 200,
-          name: cert.name || '',
-          issuer: cert.issuer || '',
-          year: cert.year || ''
+        id: Date.now() + idx + 200,
+        name: cert.name || '',
+        issuer: cert.issuer || '',
+        year: cert.year || ''
       })),
       jobMatch: data.jobMatch ? {
-          score: data.jobMatch.score || '0',
-          summary: data.jobMatch.summary || '',
-          strengths: data.jobMatch.strengths || [],
-          gaps: data.jobMatch.gaps || []
+        score: data.jobMatch.score || '0',
+        summary: data.jobMatch.summary || '',
+        strengths: data.jobMatch.strengths || [],
+        gaps: data.jobMatch.gaps || []
       } : undefined
     };
 
     // --- CRITICAL FIX: Explicitly remove jobMatch if JD was not provided ---
     if (!jdText || jdText.trim().length === 0) {
-        formattedData.jobMatch = undefined;
+      formattedData.jobMatch = undefined;
     }
 
     return { data: formattedData, latency };
 
   } catch (err: any) {
     console.error("Parsing Error:", err);
+    // Alert removed: Error is returned and displayed in UI
     return { data: null, latency: 0, error: err.message };
   }
 };
@@ -407,13 +421,13 @@ export const parseRawResumeData = async (
 // ... (Rest of geminiService.ts - analyzeResume - remains mostly same but instruction updated above) ...
 // --- Helper: Standalone Match Analysis (UPDATED: Hybrid & Dynamic Language) ---
 export const runMatchAnalysisOnly = async (
-    resumeText: string, 
-    jdText: string, 
-    language: OutputLanguage
+  resumeText: string,
+  jdText: string,
+  language: OutputLanguage
 ): Promise<{ data: any, stats: ProcessingStats }> => {
-     if (!API_KEY) throw new Error("API Key Missing");
-     
-     const prompt = `
+  if (!API_KEY) throw new Error("API Key Missing");
+
+  const prompt = `
      ACT AS: Senior Executive Recruiter.
      TASK: Rapid Job Fit Analysis.
      
@@ -434,53 +448,53 @@ export const runMatchAnalysisOnly = async (
      
      RETURN JSON ONLY.
      `;
-     
-     const attempt = async (model: string) => {
-         const config: any = {
-            responseMimeType: "application/json",
-            responseSchema: {
-                type: Type.OBJECT,
-                properties: {
-                    score: { type: Type.STRING },
-                    summary: { type: Type.STRING },
-                    strengths: { type: Type.ARRAY, items: { type: Type.STRING } },
-                    gaps: { type: Type.ARRAY, items: { type: Type.STRING } }
-                }
-            },
-            temperature: 0.1
-         };
 
-         // OPTIMIZATION: Disable thinking budget for Flash model
-         if (model === MODEL_FAST) {
-             config.thinkingConfig = { thinkingBudget: 0 };
-         }
+  const attempt = async (model: string) => {
+    const config: any = {
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: Type.OBJECT,
+        properties: {
+          score: { type: Type.STRING },
+          summary: { type: Type.STRING },
+          strengths: { type: Type.ARRAY, items: { type: Type.STRING } },
+          gaps: { type: Type.ARRAY, items: { type: Type.STRING } }
+        }
+      },
+      temperature: 0.1
+    };
 
-         const response = await ai.models.generateContent({
-            model: model,
-            contents: prompt,
-            config: config
-         });
-         return cleanAndParseJson(response.text || "{}");
-     };
+    // OPTIMIZATION: Disable thinking budget for Flash model
+    if (model === MODEL_FAST) {
+      config.thinkingConfig = { thinkingBudget: 0 };
+    }
 
-     // Hybrid Strategy
-     try {
-         // 1. Try Flash (Fast)
-         const [data, latency] = await measureLatency(() => attempt(MODEL_FAST));
-         return { data, stats: { modelUsed: MODEL_FAST, latencyMs: latency, costTier: 'Low' } };
-     } catch (e) {
-         console.warn("Match Analysis Flash Failed, fallback to Pro", e);
-         // 2. Fallback to Pro (Robust)
-         const [data, latency] = await measureLatency(() => attempt(MODEL_PRO));
-         return { data, stats: { modelUsed: MODEL_PRO, latencyMs: latency, costTier: 'High' } };
-     }
+    const response = await getAI().models.generateContent({
+      model: model,
+      contents: prompt,
+      config: config
+    });
+    return cleanAndParseJson(response.text || "{}");
+  };
+
+  // Hybrid Strategy
+  try {
+    // 1. Try Flash (Fast)
+    const [data, latency] = await measureLatency(() => attempt(MODEL_FAST));
+    return { data, stats: { modelUsed: MODEL_FAST, latencyMs: latency, costTier: 'Low' } };
+  } catch (e) {
+    console.warn("Match Analysis Flash Failed, fallback to Pro", e);
+    // 2. Fallback to Pro (Robust)
+    const [data, latency] = await measureLatency(() => attempt(MODEL_PRO));
+    return { data, stats: { modelUsed: MODEL_PRO, latencyMs: latency, costTier: 'High' } };
+  }
 }
 
 
 // --- FUNCTION 2: Final Intelligence Analysis (HYBRID ARCHITECTURE) ---
 export const analyzeResume = async (
-  resumeText: string, 
-  mode: AnalysisMode, 
+  resumeText: string,
+  mode: AnalysisMode,
   jdText?: string,
   language: OutputLanguage = 'Korean'
 ): Promise<AnalysisResult> => {
@@ -489,10 +503,10 @@ export const analyzeResume = async (
   }
 
   const isRefinement = mode === AnalysisMode.RESUME_REFINEMENT;
-  const systemInstruction = isRefinement 
-    ? getRefinementInstruction(language) 
+  const systemInstruction = isRefinement
+    ? getRefinementInstruction(language)
     : getBriefingInstruction(language);
-  
+
   const outputLangPrompt = language === 'Korean' ? 'OUTPUT IN KOREAN.' : 'OUTPUT IN ENGLISH.';
 
   let userPrompt = `CANDIDATE RESUME TEXT:\n${resumeText}\n`;
@@ -500,80 +514,81 @@ export const analyzeResume = async (
     userPrompt += `\nTARGET JOB DESCRIPTION (JD):\n${jdText}\n`;
     userPrompt += `\nINSTRUCTION: Perform a deep-dive match analysis against this JD. ${outputLangPrompt}`;
   } else {
-      userPrompt += `\nNO JD PROVIDED: Focus on general executive profiling. ${outputLangPrompt}`;
+    userPrompt += `\nNO JD PROVIDED: Focus on general executive profiling. ${outputLangPrompt}`;
   }
 
   console.log(`[ExpertLounge] Hybrid Analysis Started. Mode: ${mode}, Lang: ${language}`);
 
   // --- STRATEGY: Primary (Flash) -> Fallback (Pro) ---
   const attemptAnalysis = async (modelName: string): Promise<ResumeData> => {
-      const config: any = {
-          systemInstruction: systemInstruction,
-          responseMimeType: "application/json",
-          responseSchema: getResumeSchema(language),
-          temperature: 0.2, 
-      };
+    const config: any = {
+      systemInstruction: systemInstruction,
+      responseMimeType: "application/json",
+      responseSchema: getResumeSchema(language),
+      temperature: 0.2,
+    };
 
-      // OPTIMIZATION: Disable thinking budget for Flash model
-      if (modelName === MODEL_FAST) {
-          config.thinkingConfig = { thinkingBudget: 0 };
-      }
+    // OPTIMIZATION: Disable thinking budget for Flash model
+    if (modelName === MODEL_FAST) {
+      config.thinkingConfig = { thinkingBudget: 0 };
+    }
 
-      const response = await ai.models.generateContent({
-        model: modelName,
-        contents: userPrompt,
-        config: config
-      });
-      if (!response.text) throw new Error("Empty response from model");
-      return cleanAndParseJson(response.text) as ResumeData;
+    const response = await getAI().models.generateContent({
+      model: modelName,
+      contents: userPrompt,
+      config: config
+    });
+    if (!response.text) throw new Error("Empty response from model");
+    return cleanAndParseJson(response.text) as ResumeData;
   };
 
   try {
     // 1. ATTEMPT PRIMARY: Flash (Speed Optimized)
     console.log(`[ExpertLounge] Attempting Primary Model: ${MODEL_FAST}`);
     const [data, latency] = await measureLatency(async () => {
-        return await attemptAnalysis(MODEL_FAST);
+      return await attemptAnalysis(MODEL_FAST);
     });
 
     // 2. CROSS-VALIDATION (Audit)
     // Simple check: If critical data is missing, force fallback
     if (!data.candidateName || data.experience.length === 0) {
-        throw new Error("Primary model returned incomplete data. Triggering fallback.");
+      throw new Error("Primary model returned incomplete data. Triggering fallback.");
     }
 
-    return { 
-      data, 
+    return {
+      data,
       stats: {
         modelUsed: MODEL_FAST, // Explicitly state Flash was used
         latencyMs: latency,
         costTier: 'Low'
-      } 
+      }
     };
 
   } catch (flashError: any) {
     console.warn(`[ExpertLounge] Primary Model Failed: ${flashError.message}. Switching to Secondary (Pro).`);
-    
+
     // 3. FALLBACK: Pro (Quality/Recovery Optimized)
     try {
-        const [dataPro, latencyPro] = await measureLatency(async () => {
-            return await attemptAnalysis(MODEL_PRO);
-        });
+      const [dataPro, latencyPro] = await measureLatency(async () => {
+        return await attemptAnalysis(MODEL_PRO);
+      });
 
-        return {
-            data: dataPro,
-            stats: {
-                modelUsed: MODEL_PRO, // Explicitly state Pro was used
-                latencyMs: latencyPro,
-                costTier: 'High'
-            }
-        };
+      return {
+        data: dataPro,
+        stats: {
+          modelUsed: MODEL_PRO, // Explicitly state Pro was used
+          latencyMs: latencyPro,
+          costTier: 'High'
+        }
+      };
     } catch (proError: any) {
-        console.error("Critical Failure: Both models failed.", proError);
-        return { 
-            data: null, 
-            stats: null, 
-            error: "Complex Analysis Failed. Please try simplifying the input or try again." 
-        };
+      console.error("Critical Failure: Both models failed.", proError);
+      alert(`[AI Error] Analysis Failed:\n${proError.message}\n\nPlease check your API Key and Network.`);
+      return {
+        data: null,
+        stats: null,
+        error: "Complex Analysis Failed. Please try simplifying the input or try again."
+      };
     }
   }
 };
