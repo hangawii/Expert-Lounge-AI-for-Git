@@ -355,8 +355,6 @@ export const parseRawResumeData = async (
           responseMimeType: "application/json",
           responseSchema: parsingSchema,
           temperature: 0.0, // Reduced from 0.2 to 0.0 to minimize syntax errors
-          // OPTIMIZATION: Disable thinking budget for parsing speed
-          thinkingConfig: { thinkingBudget: 0 },
         }
       });
       return cleanAndParseJson(response.text || "{}");
@@ -466,7 +464,7 @@ export const runMatchAnalysisOnly = async (
 
     // OPTIMIZATION: Disable thinking budget for Flash model
     if (model === MODEL_FAST) {
-      config.thinkingConfig = { thinkingBudget: 0 };
+      // thinkingConfig removed as it may cause issues with certain models
     }
 
     const response = await getAI().models.generateContent({
@@ -499,7 +497,7 @@ export const analyzeResume = async (
   language: OutputLanguage = 'Korean'
 ): Promise<AnalysisResult> => {
   if (!API_KEY) {
-    return { data: null, stats: null, error: "API Key is missing." };
+    return { data: null, stats: null, error: `API Key is missing (Length: ${API_KEY.length}). Please check Vercel Environment Variables.` };
   }
 
   const isRefinement = mode === AnalysisMode.RESUME_REFINEMENT;
@@ -530,7 +528,7 @@ export const analyzeResume = async (
 
     // OPTIMIZATION: Disable thinking budget for Flash model
     if (modelName === MODEL_FAST) {
-      config.thinkingConfig = { thinkingBudget: 0 };
+      // thinkingConfig removed
     }
 
     const response = await getAI().models.generateContent({

@@ -128,7 +128,9 @@ function Application() {
         setIsParsing(false);
         console.error("Upload Error:", error);
         // Display specific error in the main UI (Red Box) instead of alert
-        setError(`파일 업로드 분석 실패: ${error.message} (다시 시도해주세요)`);
+        const errorMsg = `파일 업로드 분석 실패: ${error.message} (다시 시도해주세요)`;
+        setError(errorMsg);
+        alert(errorMsg); // Force alert so user notices explicitly
       }
 
     } else {
