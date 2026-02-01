@@ -1,6 +1,6 @@
 // --- CONFIGURATION ---
 // IMPORTANT: Replace with your Google Apps Script Web App URL
-const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwc4Cm9BYs4GVaumlWkPPQRX8pFe0d8wnBnW53h_B4SpOVN7ac4bUA6mZd8IEOvjyo/exec"; 
+const GOOGLE_SCRIPT_URL = import.meta.env.VITE_GOOGLE_SCRIPT_URL;
 
 interface UserData {
   name: string;
