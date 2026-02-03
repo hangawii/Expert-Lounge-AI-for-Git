@@ -255,7 +255,18 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStart, onSignIn }) =
                 </section>
 
                 <footer className="py-8 bg-slate-950 text-center text-slate-600 text-xs border-t border-slate-900">
-                    <p className="font-serif">&copy; 2026 Expert Lounge by YN Consulting Group. All rights reserved.</p>
+                    <p className="font-serif">
+                        &copy; 2026 Expert Lounge by{' '}
+                        <a
+                            href="https://ynconsultinggroup.com/"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-brand-gold hover:text-white transition-colors underline decoration-brand-gold/30 underline-offset-4"
+                        >
+                            YN Consulting Group
+                        </a>
+                        . All rights reserved.
+                    </p>
                 </footer>
             </div>
         </div>
